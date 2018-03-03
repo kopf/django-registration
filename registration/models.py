@@ -173,17 +173,23 @@ class RegistrationManager(models.Manager):
         it will be passed to the email template.
 
         """
-        if new_user is None:
-            password = user_info.pop('password')
-            new_user = UserModel()(**user_info)
-            new_user.set_password(password)
-        new_user.is_active = False
+        if new_user.user is None:
+            password = request.POST['password1']
+            new_user.user = UserModel()(**{
+                'username': request.POST['username'],
+                'first_name': new_user.first_name,
+                'last_name': new_user.last_name,
+                'email': new_user.mail
+            })
+            new_user.user.set_password(password)
+        new_user.user.is_active = False
 
         # Since we calculate the RegistrationProfile expiration from this date,
         # we want to ensure that it is current
-        new_user.date_joined = datetime_now()
+        new_user.user.date_joined = datetime_now()
 
         with transaction.atomic():
+            new_user.user.save()
             new_user.save()
             registration_profile = self.create_profile(
                 new_user, **profile_info)
@@ -202,7 +208,7 @@ class RegistrationManager(models.Manager):
         SHA1 hash, generated from a secure random string.
 
         """
-        profile = self.model(user=user, **profile_info)
+        profile = self.model(user=user.user, **profile_info)
 
         if 'activation_key' not in profile_info:
             profile.create_new_activation_key(save=False)
